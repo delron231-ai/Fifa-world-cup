@@ -1,0 +1,445 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.tabs { display: flex; gap: 4px; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 1.5rem; padding: 1rem 0 0; }
+.tab { padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--color-text-secondary); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s; }
+.tab.active { color: var(--color-text-primary); border-bottom: 2px solid var(--color-text-primary); }
+.tab:hover:not(.active) { color: var(--color-text-primary); }
+.panel { display: none; } .panel.active { display: block; }
+.country-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.country-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 14px 16px; cursor: pointer; transition: border-color 0.15s; }
+.country-card:hover { border-color: var(--color-border-secondary); }
+.country-card.selected { border: 2px solid #378ADD; }
+.country-name { font-size: 14px; font-weight: 500; color: var(--color-text-primary); }
+.country-rank { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+.flag { font-size: 22px; margin-bottom: 6px; }
+.win-prob { font-size: 20px; font-weight: 500; color: #185FA5; }
+.prob-bar-wrap { background: var(--color-background-secondary); border-radius: 4px; height: 6px; margin-top: 6px; }
+.prob-bar { height: 6px; border-radius: 4px; background: #378ADD; }
+
+.detail-header { display: flex; align-items: center; gap: 16px; margin-bottom: 1.5rem; }
+.detail-flag { font-size: 42px; }
+.detail-title { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
+.detail-sub { font-size: 13px; color: var(--color-text-secondary); margin-top: 2px; }
+.section-label { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+.player-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.player-table th { text-align: left; color: var(--color-text-secondary); font-weight: 500; padding: 6px 10px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.player-table td { padding: 8px 10px; border-bottom: 0.5px solid var(--color-border-tertiary); color: var(--color-text-primary); }
+.player-table tr:last-child td { border-bottom: none; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+.badge-blue { background: #E6F1FB; color: #0C447C; }
+.badge-green { background: #EAF3DE; color: #27500A; }
+.badge-amber { background: #FAEEDA; color: #633806; }
+.badge-red { background: #FCEBEB; color: #791F1F; }
+.metric-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+.metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 12px 14px; }
+.metric-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.metric-value { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+.back-btn { font-size: 13px; color: var(--color-text-secondary); background: none; border: none; cursor: pointer; padding: 0 0 1rem; display: flex; align-items: center; gap: 4px; }
+.back-btn:hover { color: var(--color-text-primary); }
+.model-note { font-size: 12px; color: var(--color-text-secondary); background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 14px; margin-top: 1rem; }
+.chart-wrap { position: relative; width: 100%; height: 280px; margin: 1rem 0; }
+.compare-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.compare-table th { padding: 8px 12px; border-bottom: 0.5px solid var(--color-border-tertiary); color: var(--color-text-secondary); font-weight: 500; text-align: center; }
+.compare-table th:first-child { text-align: left; }
+.compare-table td { padding: 8px 12px; border-bottom: 0.5px solid var(--color-border-tertiary); text-align: center; color: var(--color-text-primary); }
+.compare-table td:first-child { text-align: left; color: var(--color-text-secondary); }
+.compare-table tr:last-child td { border-bottom: none; }
+.best-val { font-weight: 500; color: #185FA5; }
+</style>
+
+<h2 class="sr-only">2026 FIFA World Cup team comparison dashboard — player stats, probability model, and head-to-head analysis for 10 top nations</h2>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('overview')">Overview</button>
+  <button class="tab" onclick="switchTab('teams')">Team deep-dive</button>
+  <button class="tab" onclick="switchTab('compare')">Compare</button>
+  <button class="tab" onclick="switchTab('model')">Probability model</button>
+</div>
+
+<div id="overview" class="panel active">
+  <p style="font-size:13px; color:var(--color-text-secondary); margin-bottom:1rem;">Win probabilities derived from FIFA ranking, betting market odds, squad depth, and previous World Cup performance. Click any card for the full team breakdown.</p>
+  <div class="country-grid" id="overview-grid"></div>
+</div>
+
+<div id="teams" class="panel">
+  <div id="team-list">
+    <p style="font-size:13px; color:var(--color-text-secondary); margin-bottom:1rem;">Select a team to see key players, club stats, and World Cup history.</p>
+    <div class="country-grid" id="teams-grid"></div>
+  </div>
+  <div id="team-detail" style="display:none;"></div>
+</div>
+
+<div id="compare" class="panel">
+  <p style="font-size:13px; color:var(--color-text-secondary); margin-bottom:1rem;">Side-by-side comparison across key tournament indicators.</p>
+  <div style="position:relative;width:100%;height:320px;margin-bottom:1.5rem;"><canvas id="radarChart" role="img" aria-label="Radar chart comparing 10 World Cup nations across 5 attributes.">Radar chart comparing attack, defense, squad depth, experience, and momentum for all 10 nations.</canvas></div>
+  <table class="compare-table" id="compare-table"></table>
+</div>
+
+<div id="model" class="panel">
+  <p style="font-size:13px; color:var(--color-text-secondary); margin-bottom:1rem;">A weighted probability model combining five factors. Adjust sliders to rebalance.</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:1.5rem;">
+    <div>
+      <div id="sliders"></div>
+    </div>
+    <div style="position:relative;width:100%;height:280px;"><canvas id="probChart" role="img" aria-label="Bar chart of tournament win probabilities for 10 nations.">Win probabilities for all 10 nations.</canvas></div>
+  </div>
+  <div class="model-note">Model inputs: FIFA ranking score (Jun 2026), betting market implied probability, squad avg age, previous WC performance (QF+), and current form index. Weights sum to 100%.</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const teams = [
+  {
+    id:'france', flag:'🇫🇷', name:'France', group:'Group I', fifaRank:1,
+    odds:'+450', winProb:16.2, color:'#185FA5',
+    attrs:{attack:95,defense:88,depth:92,experience:90,momentum:87},
+    prevWC:{qatar2022:'Runner-up',russia2018:'Champions',brazil2014:'QF'},
+    metrics:{avgAge:27.1,starRating:5,titles:2,bestWC:'Champion (2018)'},
+    players:[
+      {name:'Kylian Mbappé',pos:'FW',club:'Real Madrid',clubStats:'44G all comps 25-26',wcHistory:'8G 2022 WC (Golden Boot)'},
+      {name:'Antoine Griezmann',pos:'FW/MF',club:'Atletico Madrid',clubStats:'16G 12A 25-26',wcHistory:'6G 2018 WC winner'},
+      {name:'Aurélien Tchouaméni',pos:'MF',club:'Real Madrid',clubStats:'4G 3A 25-26',wcHistory:'2022 finalist'},
+      {name:'Mike Maignan',pos:'GK',club:'AC Milan',clubStats:'12 clean sheets 25-26',wcHistory:'Backup 2022'},
+    ]
+  },
+  {
+    id:'spain', flag:'🇪🇸', name:'Spain', group:'Group H', fifaRank:2,
+    odds:'+450', winProb:15.8, color:'#D85A30',
+    attrs:{attack:94,defense:86,depth:90,experience:85,momentum:92},
+    prevWC:{qatar2022:'Round of 16',russia2018:'R16',brazil2014:'Group stage'},
+    metrics:{avgAge:25.8,starRating:5,titles:1,bestWC:'Champion (2010)'},
+    players:[
+      {name:'Lamine Yamal',pos:'FW',club:'Barcelona',clubStats:'22G 19A La Liga 25-26',wcHistory:'Debut WC aged 19'},
+      {name:'Pedri',pos:'MF',club:'Barcelona',clubStats:'4G 12A La Liga 25-26',wcHistory:'2022 R16'},
+      {name:'Rodri',pos:'MF',club:'Man City',clubStats:'Returned from injury 25-26',wcHistory:'2022 R16'},
+      {name:'Álvaro Morata',pos:'FW',club:'AC Milan',clubStats:'12G 25-26',wcHistory:'3G 2022 WC'},
+    ]
+  },
+  {
+    id:'england', flag:'🏴󠁧󠁢󠁥󠁮󠁧󠁿', name:'England', group:'Group L', fifaRank:4,
+    odds:'+650', winProb:10.8, color:'#534AB7',
+    attrs:{attack:89,defense:85,depth:88,experience:78,momentum:83},
+    prevWC:{qatar2022:'QF',russia2018:'4th place',brazil2014:'Group stage'},
+    metrics:{avgAge:26.4,starRating:4,titles:0,bestWC:'4th (2018)'},
+    players:[
+      {name:'Jude Bellingham',pos:'MF',club:'Real Madrid',clubStats:'Shoulder surgery — available WC',wcHistory:'2022 QF debut'},
+      {name:'Harry Kane',pos:'FW',club:'Bayern Munich',clubStats:'35G 2025-26 Bundesliga',wcHistory:'Golden Boot 2018 (6G)'},
+      {name:'Bukayo Saka',pos:'FW',club:'Arsenal',clubStats:'13G 10A PL 25-26',wcHistory:'2022 QF — missed pen SF'},
+      {name:'Declan Rice',pos:'MF',club:'Arsenal',clubStats:'5G 7A PL 25-26',wcHistory:'2022 QF'},
+    ]
+  },
+  {
+    id:'brazil', flag:'🇧🇷', name:'Brazil', group:'Group C', fifaRank:5,
+    odds:'+750', winProb:9.4, color:'#3B6D11',
+    attrs:{attack:92,defense:80,depth:86,experience:88,momentum:75},
+    prevWC:{qatar2022:'QF (PK loss to Croatia)',russia2018:'QF',brazil2014:'4th (hosts)'},
+    metrics:{avgAge:26.8,starRating:5,titles:5,bestWC:'Champion (5x)'},
+    players:[
+      {name:'Vinicius Jr',pos:'FW',club:'Real Madrid',clubStats:'23G 14A all comps 25-26',wcHistory:'4G 2022 WC (QF)'},
+      {name:'Raphinha',pos:'FW',club:'Barcelona',clubStats:'27G 15A La Liga 25-26',wcHistory:'2022 QF'},
+      {name:'Rodrygo',pos:'FW',club:'Real Madrid',clubStats:'14G 9A La Liga 25-26',wcHistory:'2G 2022 QF'},
+      {name:'Neymar',pos:'FW',club:'Al-Hilal',clubStats:'Recovering — named in squad',wcHistory:'8G across 2014 & 2022'},
+    ]
+  },
+  {
+    id:'argentina', flag:'🇦🇷', name:'Argentina', group:'Group J', fifaRank:3,
+    odds:'+900', winProb:8.1, color:'#0F6E56',
+    attrs:{attack:90,defense:83,depth:80,experience:92,momentum:80},
+    prevWC:{qatar2022:'Champions',russia2018:'R16',brazil2014:'Runners-up'},
+    metrics:{avgAge:27.6,starRating:5,titles:3,bestWC:'Champion (2022, 1986, 1978)'},
+    players:[
+      {name:'Lionel Messi',pos:'FW',club:'Inter Miami',clubStats:'16G 12A MLS 25-26',wcHistory:'9G (2022 Champion, Golden Ball)'},
+      {name:'Julián Álvarez',pos:'FW',club:'Atlético Madrid',clubStats:'19G 7A La Liga 25-26',wcHistory:'4G 2022 WC champion'},
+      {name:'Lautaro Martínez',pos:'FW',club:'Inter Milan',clubStats:'23G Serie A 25-26',wcHistory:'2G 2022 champion'},
+      {name:'Rodrigo De Paul',pos:'MF',club:'Atlético Madrid',clubStats:'3G 9A La Liga 25-26',wcHistory:'2022 champion'},
+    ]
+  },
+  {
+    id:'germany', flag:'🇩🇪', name:'Germany', group:'Group E', fifaRank:7,
+    odds:'+900', winProb:7.6, color:'#5F5E5A',
+    attrs:{attack:87,defense:85,depth:89,experience:85,momentum:82},
+    prevWC:{qatar2022:'Group stage',russia2018:'Group stage',brazil2014:'Champions'},
+    metrics:{avgAge:26.2,starRating:4,titles:4,bestWC:'Champion (2014)'},
+    players:[
+      {name:'Florian Wirtz',pos:'MF/FW',club:'Bayer Leverkusen',clubStats:'18G 17A Bundesliga 25-26',wcHistory:'Debut WC'},
+      {name:'Jamal Musiala',pos:'MF/FW',club:'Bayern Munich',clubStats:'17G 11A Bundesliga 25-26',wcHistory:'2022 group stage exit'},
+      {name:'Kai Havertz',pos:'FW',club:'Arsenal',clubStats:'14G 8A PL 25-26',wcHistory:'2022 group stage exit'},
+      {name:'Joshua Kimmich',pos:'MF',club:'Barcelona',clubStats:'4G 12A La Liga 25-26',wcHistory:'3 WCs (2014 winner)'},
+    ]
+  },
+  {
+    id:'portugal', flag:'🇵🇹', name:'Portugal', group:'Group K', fifaRank:6,
+    odds:'+1200', winProb:6.3, color:'#993C1D',
+    attrs:{attack:86,defense:82,depth:83,experience:88,momentum:78},
+    prevWC:{qatar2022:'QF',russia2018:'R16',brazil2014:'R16'},
+    metrics:{avgAge:27.0,starRating:4,titles:0,bestWC:'3rd (1966)'},
+    players:[
+      {name:'Cristiano Ronaldo',pos:'FW',club:'Al-Nassr',clubStats:'35G Saudi Pro League 25-26',wcHistory:'8G across 5 WCs'},
+      {name:'Bruno Fernandes',pos:'MF',club:'Man United',clubStats:'15G 18A PL 25-26',wcHistory:'3G 2022 WC QF'},
+      {name:'Rafael Leão',pos:'FW',club:'AC Milan',clubStats:'14G 9A Serie A 25-26',wcHistory:'2022 QF sub role'},
+      {name:'Bernardo Silva',pos:'MF',club:'Man City',clubStats:'7G 10A PL 25-26',wcHistory:'2022 QF'},
+    ]
+  },
+  {
+    id:'netherlands', flag:'🇳🇱', name:'Netherlands', group:'Group F', fifaRank:8,
+    odds:'+1400', winProb:5.7, color:'#BA7517',
+    attrs:{attack:85,defense:84,depth:82,experience:82,momentum:80},
+    prevWC:{qatar2022:'QF',russia2018:'Did not qualify',brazil2014:'3rd place'},
+    metrics:{avgAge:26.9,starRating:4,titles:0,bestWC:'Runner-up (1974, 1978, 2010)'},
+    players:[
+      {name:'Virgil van Dijk',pos:'CB',club:'Liverpool',clubStats:'3G 4A PL 25-26',wcHistory:'3G 2014 (3rd place)'},
+      {name:'Cody Gakpo',pos:'FW',club:'Liverpool',clubStats:'14G 6A PL 25-26',wcHistory:'3G 2022 WC QF'},
+      {name:'Tijjani Reijnders',pos:'MF',club:'AC Milan',clubStats:'11G 5A Serie A 25-26',wcHistory:'2022 QF'},
+      {name:'Xavi Simons',pos:'MF/FW',club:'PSG',clubStats:'11G 14A Ligue 1 25-26',wcHistory:'2022 QF'},
+    ]
+  },
+  {
+    id:'usa', flag:'🇺🇸', name:'USA', group:'Group D', fifaRank:14,
+    odds:'+6500', winProb:3.0, color:'#3266ad',
+    attrs:{attack:72,defense:75,depth:74,experience:60,momentum:78},
+    prevWC:{qatar2022:'R16',russia2018:'Did not qualify',brazil2014:'R16'},
+    metrics:{avgAge:25.2,starRating:3,titles:0,bestWC:'3rd (1930)'},
+    players:[
+      {name:'Christian Pulisic',pos:'FW',club:'AC Milan',clubStats:'12G 7A Serie A 25-26',wcHistory:'2G 2022 WC R16'},
+      {name:'Yunus Musah',pos:'MF',club:'AC Milan',clubStats:'3G 5A Serie A 25-26',wcHistory:'2022 R16'},
+      {name:'Tyler Adams',pos:'MF',club:'Bournemouth',clubStats:'2G 5A PL 25-26',wcHistory:'2022 R16 (captain)'},
+      {name:'Folarin Balogun',pos:'FW',club:'Crystal Palace',clubStats:'9G PL 25-26',wcHistory:'Debut WC'},
+    ]
+  },
+  {
+    id:'morocco', flag:'🇲🇦', name:'Morocco', group:'Group C', fifaRank:13,
+    odds:'+3300', winProb:2.6, color:'#993556',
+    attrs:{attack:76,defense:86,depth:78,experience:72,momentum:82},
+    prevWC:{qatar2022:'4th place',russia2018:'Group stage',brazil2014:'Group stage'},
+    metrics:{avgAge:26.5,starRating:3,titles:0,bestWC:'4th (2022)'},
+    players:[
+      {name:'Achraf Hakimi',pos:'RB',club:'PSG',clubStats:'4G 11A Ligue 1 25-26',wcHistory:'2G 2022 (4th)'},
+      {name:'Hakim Ziyech',pos:'MF/FW',club:'Galatasaray',clubStats:'12G 8A 25-26',wcHistory:'2G 2022 (4th)'},
+      {name:'Youssef En-Nesyri',pos:'FW',club:'Fenerbahce',clubStats:'15G 25-26',wcHistory:'4G 2022 (4th)'},
+      {name:'Sofyan Amrabat',pos:'MF',club:'Fiorentina',clubStats:'2G 4A 25-26',wcHistory:'2022 Player of tourney contender'},
+    ]
+  },
+];
+
+let radarChartInst = null;
+let probChartInst = null;
+let weights = {fifa:25, market:30, depth:15, experience:20, momentum:10};
+
+function calcProbs(w) {
+  const raw = teams.map(t => {
+    const fifoScore = (20 - t.fifaRank) / 19;
+    const marketScore = t.winProb / 16.2;
+    const depthScore = t.attrs.depth / 95;
+    const expScore = t.attrs.experience / 92;
+    const momScore = t.attrs.momentum / 92;
+    return (fifoScore * w.fifa + marketScore * w.market + depthScore * w.depth + expScore * w.experience + momScore * w.momentum);
+  });
+  const total = raw.reduce((a,b) => a+b, 0);
+  return raw.map(v => +((v / total) * 100).toFixed(1));
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+  document.getElementById(tab).classList.add('active');
+  if (tab === 'compare' && !radarChartInst) buildRadar();
+  if (tab === 'model' && !probChartInst) buildModel();
+}
+
+function buildOverview() {
+  const grid = document.getElementById('overview-grid');
+  grid.innerHTML = teams.map(t => `
+    <div class="country-card" onclick="goTeamDetail('${t.id}','overview')">
+      <div class="flag">${t.flag}</div>
+      <div class="country-name">${t.name}</div>
+      <div class="country-rank">FIFA #${t.fifaRank} · ${t.group}</div>
+      <div class="win-prob" style="margin-top:10px;">${t.winProb}%</div>
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:4px;">Win probability</div>
+      <div class="prob-bar-wrap"><div class="prob-bar" style="width:${(t.winProb/16.5)*100}%;background:${t.color};"></div></div>
+    </div>
+  `).join('');
+}
+
+function buildTeamsGrid() {
+  const grid = document.getElementById('teams-grid');
+  grid.innerHTML = teams.map(t => `
+    <div class="country-card" onclick="goTeamDetail('${t.id}','teams')">
+      <div class="flag">${t.flag}</div>
+      <div class="country-name">${t.name}</div>
+      <div class="country-rank">FIFA #${t.fifaRank} · Best: ${t.metrics.bestWC}</div>
+    </div>
+  `).join('');
+}
+
+function goTeamDetail(id, from) {
+  const t = teams.find(x => x.id === id);
+  if (from === 'teams') {
+    document.getElementById('team-list').style.display = 'none';
+    const detail = document.getElementById('team-detail');
+    detail.style.display = 'block';
+    detail.innerHTML = buildDetailHTML(t, 'teams');
+  } else {
+    switchTab('teams');
+    setTimeout(() => {
+      document.getElementById('team-list').style.display = 'none';
+      const detail = document.getElementById('team-detail');
+      detail.style.display = 'block';
+      detail.innerHTML = buildDetailHTML(t, 'teams');
+    }, 50);
+  }
+}
+
+function backToList() {
+  document.getElementById('team-list').style.display = 'block';
+  document.getElementById('team-detail').style.display = 'none';
+}
+
+function buildDetailHTML(t, from) {
+  const stars = '★'.repeat(t.metrics.starRating) + '☆'.repeat(5-t.metrics.starRating);
+  const wcs = Object.entries(t.prevWC).map(([k,v]) => {
+    const cls = v.includes('Champ') ? 'badge-green' : v.includes('Runner') ? 'badge-blue' : v.includes('QF') || v.includes('4th') ? 'badge-amber' : 'badge-red';
+    return `<div style="margin-bottom:6px;font-size:13px;"><span style="color:var(--color-text-secondary);min-width:70px;display:inline-block;">${k.replace('qatar2022','Qatar 2022').replace('russia2018','Russia 2018').replace('brazil2014','Brazil 2014')}</span> <span class="badge ${cls}">${v}</span></div>`;
+  }).join('');
+  const rows = t.players.map(p => `
+    <tr>
+      <td><strong>${p.name}</strong></td>
+      <td><span class="badge badge-blue">${p.pos}</span></td>
+      <td style="color:var(--color-text-secondary)">${p.club}</td>
+      <td>${p.clubStats}</td>
+      <td style="color:var(--color-text-secondary)">${p.wcHistory}</td>
+    </tr>
+  `).join('');
+  const attrsHTML = Object.entries(t.attrs).map(([k,v]) => `
+    <div style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span style="color:var(--color-text-secondary);text-transform:capitalize;">${k}</span><span style="color:var(--color-text-primary);font-weight:500;">${v}</span></div>
+      <div style="background:var(--color-background-secondary);border-radius:3px;height:5px;"><div style="width:${v}%;height:5px;border-radius:3px;background:${t.color};"></div></div>
+    </div>
+  `).join('');
+
+  return `
+    <button class="back-btn" onclick="backToList()"><i class="ti ti-arrow-left" aria-hidden="true"></i> Back to all teams</button>
+    <div class="detail-header">
+      <div class="detail-flag">${t.flag}</div>
+      <div>
+        <div class="detail-title">${t.name}</div>
+        <div class="detail-sub">${t.group} · FIFA #${t.fifaRank} · ${stars}</div>
+      </div>
+      <div style="margin-left:auto;text-align:right;">
+        <div style="font-size:28px;font-weight:500;color:${t.color};">${t.winProb}%</div>
+        <div style="font-size:12px;color:var(--color-text-secondary);">Win probability</div>
+      </div>
+    </div>
+    <div class="metric-row">
+      <div class="metric"><div class="metric-label">Avg squad age</div><div class="metric-value">${t.metrics.avgAge}</div></div>
+      <div class="metric"><div class="metric-label">World titles</div><div class="metric-value">${t.metrics.titles}</div></div>
+      <div class="metric"><div class="metric-label">Betting odds</div><div class="metric-value">${t.odds}</div></div>
+      <div class="metric"><div class="metric-label">Best WC result</div><div class="metric-value" style="font-size:12px;padding-top:4px;">${t.metrics.bestWC}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:1.5rem;">
+      <div>
+        <div class="section-label">Team attributes</div>
+        ${attrsHTML}
+      </div>
+      <div>
+        <div class="section-label">Previous World Cups</div>
+        ${wcs}
+      </div>
+    </div>
+    <div class="section-label">Key players — 2025-26 club stats & WC history</div>
+    <table class="player-table">
+      <thead><tr><th>Player</th><th>Pos</th><th>Club</th><th>25-26 stats</th><th>WC history</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function buildRadar() {
+  const labels = ['Attack','Defense','Depth','Experience','Momentum'];
+  const colors = teams.map(t => t.color);
+  const datasets = teams.map(t => ({
+    label: t.name,
+    data: [t.attrs.attack, t.attrs.defense, t.attrs.depth, t.attrs.experience, t.attrs.momentum],
+    borderColor: t.color,
+    backgroundColor: t.color + '18',
+    borderWidth: 1.5,
+    pointRadius: 3,
+  }));
+  radarChartInst = new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { r: { min: 55, max: 100, ticks: { stepSize: 15, font: { size: 10 }, color: '#888' }, grid: { color: 'rgba(128,128,128,0.2)' }, pointLabels: { font: { size: 12 }, color: '#888' } } }
+    }
+  });
+  const table = document.getElementById('compare-table');
+  const cols = ['Attack','Defense','Depth','Experience','Momentum','Win %'];
+  const maxVals = cols.map(c => {
+    if (c === 'Win %') return Math.max(...teams.map(t => t.winProb));
+    const key = c.toLowerCase();
+    return Math.max(...teams.map(t => t.attrs[key]));
+  });
+  table.innerHTML = `<thead><tr><th>Team</th>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>` +
+    teams.map(t => `<tr>
+      <td>${t.flag} ${t.name}</td>
+      ${cols.map((c,i) => {
+        const v = c === 'Win %' ? t.winProb + '%' : t.attrs[c.toLowerCase()];
+        const raw = c === 'Win %' ? t.winProb : t.attrs[c.toLowerCase()];
+        const isBest = raw === maxVals[i];
+        return `<td class="${isBest ? 'best-val' : ''}">${v}</td>`;
+      }).join('')}
+    </tr>`).join('') + '</tbody>';
+}
+
+function buildModel() {
+  const sliderDiv = document.getElementById('sliders');
+  sliderDiv.innerHTML = Object.entries(weights).map(([k,v]) => `
+    <div style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:var(--color-text-secondary);text-transform:capitalize;">${k === 'fifa' ? 'FIFA ranking' : k === 'market' ? 'Betting market' : k.charAt(0).toUpperCase()+k.slice(1)}</span><span id="lbl-${k}" style="font-weight:500;">${v}%</span></div>
+      <input type="range" min="5" max="50" step="1" value="${v}" id="sl-${k}" oninput="updateWeight('${k}',this.value)" style="width:100%;">
+    </div>
+  `).join('');
+  buildProbChart();
+}
+
+function updateWeight(k, v) {
+  weights[k] = +v;
+  document.getElementById('lbl-' + k).textContent = v + '%';
+  const probs = calcProbs(weights);
+  probChartInst.data.datasets[0].data = probs;
+  probChartInst.update();
+}
+
+function buildProbChart() {
+  const probs = calcProbs(weights);
+  probChartInst = new Chart(document.getElementById('probChart'), {
+    type: 'bar',
+    data: {
+      labels: teams.map(t => t.flag + ' ' + t.name),
+      datasets: [{
+        label: 'Win probability %',
+        data: probs,
+        backgroundColor: teams.map(t => t.color + 'cc'),
+        borderColor: teams.map(t => t.color),
+        borderWidth: 1,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { min: 0, max: 30, ticks: { callback: v => v + '%', font: { size: 11 }, color: '#888' }, grid: { color: 'rgba(128,128,128,0.15)' } },
+        y: { ticks: { font: { size: 11 }, color: '#888' }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+buildOverview();
+buildTeamsGrid();
+</script>
